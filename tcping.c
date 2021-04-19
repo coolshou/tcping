@@ -74,7 +74,7 @@ int main (int argc, char *argv[]) {
 		}
 	}
 
-	if (!argv[optind] || !argv[optind+1])
+	if (argc - optind != 2)
 		usage(argv[0]);
 	
 	sockfd = socket (AF_INET, SOCK_STREAM, 0);
