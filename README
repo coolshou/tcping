@@ -14,6 +14,7 @@ On OpenBSD:		make tcping.openbsd
 On Solaris 7/8:		make tcping.solaris
 On Solaris 2.6:		make tcping.solaris26
 On AIX:			make tcping.aix
+On Windows mingw systems:	make -f Makefile.win32
 
 -=[ Return values
 

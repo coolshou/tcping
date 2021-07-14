@@ -13,9 +13,17 @@
 
 #define VERSION 1.3.6
 
+#ifdef WIN32
+#include <ws2tcpip.h>
+#include <winsock2.h>
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -26,8 +34,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <fcntl.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+
+
 
 void usage();
 
@@ -50,7 +58,7 @@ int main (int argc, char *argv[]) {
 	if (argc < 3)  {
 		usage(argv[0]);
 	}
-	
+
 	while((c = getopt(argc, argv, "qt:u:")) != -1) {
 		switch(c) {
 			case 'q':
@@ -76,7 +84,7 @@ int main (int argc, char *argv[]) {
 
 	if (argc - optind != 2)
 		usage(argv[0]);
-	
+
 	sockfd = socket (AF_INET, SOCK_STREAM, 0);
 
 	memset(&addr, 0, sizeof(addr));
@@ -84,13 +92,35 @@ int main (int argc, char *argv[]) {
 	if ((host = gethostbyname(argv[optind])) == NULL) {
 		if (verbose)
 #ifdef HAVE_HSTRERROR
+	#ifdef WIN32
+	    /* hstrerror isn't available on Windows.
+       Error mapping taken from http://linux.die.net/man/3/hstrerror */
+		switch (h_errno) {
+		  case HOST_NOT_FOUND:
+			fprintf(stderr, "The specified host is unknown.");
+			break;
+		  case NO_ADDRESS:
+			fprintf(stderr,"The requested name is valid but does not have an IP address.");
+			break;
+		  case NO_RECOVERY:
+			fprintf(stderr,"A nonrecoverable name server error occurred.");
+			break;
+		  case TRY_AGAIN:
+			fprintf(stderr,"A temporary error occurred on an authoritative name server. Try again later.");
+			break;
+		  default:
+			fprintf(stderr, strerror (h_errno));
+			break;
+		}
+	#else
 			fprintf(stderr, "error: %s\n", hstrerror(h_errno));
+	#endif
 #else
 			fprintf(stderr, "error: host not found");
 #endif
 		exit(-1);
 	}
-	
+
 	memcpy(&addr.sin_addr, host->h_addr_list[0], host->h_length);
 	addr.sin_family = host->h_addrtype; /* always AF_INET */
 	if (argv[optind+1]) {
@@ -103,24 +133,29 @@ int main (int argc, char *argv[]) {
 	}
 	addr.sin_port = htons(port);
 
+#ifdef WIN32
+	unsigned long flags = 1UL;
+	ioctlsocket(sockfd, FIONBIO, &flags);
+#else
 	fcntl(sockfd, F_SETFL, O_NONBLOCK);
+#endif
 	if ((ret = connect(sockfd, (struct sockaddr *) &addr, sizeof(addr))) != 0) {
 		if (errno != EINPROGRESS) {
 #ifdef HAVE_SOLARIS
 			/* solaris immediately returns ECONNREFUSED on local ports */
 			if (errno == ECONNREFUSED) {
-				if (verbose) 
+				if (verbose)
 					fprintf(stdout, "%s port %s closed.\n", argv[optind], argv[optind+1]);
 				close(sockfd);
 				return(1);
 			} else {
-#endif	
+#endif
 				if (verbose)
 					fprintf(stderr, "error: %s port %s: %s\n", argv[optind], argv[optind+1], strerror(errno));
 				return (-1);
 #ifdef HAVE_SOLARIS
 			}
-#endif	
+#endif
 		}
 
 		FD_ZERO(&fdrset);
@@ -147,7 +182,7 @@ int main (int argc, char *argv[]) {
 				return(-1);
 			}
 			if (error != 0) {
-				if (verbose) 
+				if (verbose)
 					fprintf(stdout, "%s port %s closed.\n", argv[optind], argv[optind+1]);
 				close(sockfd);
 				return(1);
@@ -169,5 +204,5 @@ void usage(char *prog) {
 	fprintf(stderr, "error: Usage: %s [-q] [-t timeout_sec] [-u timeout_usec] <host> <port>\n", prog);
 		exit(-1);
 }
-	
+
 

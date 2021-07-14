@@ -1,12 +1,16 @@
 FILES=README tcping.c Makefile LICENSE
 VERNUM=`grep VERSION tcping.c | cut -d" " -f3`
 VER=tcping-$(VERNUM)
+PROGRAMS = tcping
 
 CCFLAGS=-Wall
 CC=gcc
 
+tcping.mingw: tcping.c
+	$(CC) -o tcping $(CCFLAGS) -DHAVE_HSTRERROR tcping.c
+
 tcping.linux: tcping.c
-	$(CC) -o tcping $(CCFLAGS) -DHAVE_HSTRERROR tcping.c 
+	$(CC) -o tcping $(CCFLAGS) -DHAVE_HSTRERROR tcping.c
 
 tcping.openbsd: tcping.linux
 
